@@ -1,140 +1,121 @@
+package com.example.votersproject;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+
+class Region {
+    String name;
+    Map<String, Integer> analysis = new HashMap<String, Integer>();
+    int invalid = 0;
+}
 
 public class ElectionResults {
-    public static void main(String[] args) {
-        String fileName = "C:/Users/divit/OneDrive/Documents/Java Materials/Voteslist.dat"; // Specify the path to your .dat file
-        List<String> regions = new ArrayList<>(); // List to store unique region names
-        List<String> contestants = new ArrayList<>(); // List to store contestants for each region
-        List<String> remainingData = new ArrayList<>(); // List to store data from specified line number
-        Set<String> voterIds = new HashSet<>(); // Set to store unique voter IDs
 
-        // Specify the line number from which to start saving data into the remainingData list
-        int startLine = 6; // (number of regions + 1)
+    public static void main(String[] args) throws IOException {
+        List<Integer> voters = new ArrayList<Integer>();
+        Map<String, Integer> total_results = new HashMap<String, Integer>();
+        List<Region> regions = new ArrayList<Region>();
+        String file = "C:\\Users\\divit\\eclipse-workspace\\VotersProject\\src\\com\\example\\votersproject\\votes.dat";
+        FileReader fr;
 
-        try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
-            String line;
-            int currentLine = 1; // Variable to keep track of the current line number
-            while ((line = br.readLine()) != null) {
-                System.out.println(line);
-                if (currentLine <= startLine) {
-                    if (!line.isEmpty() && line.charAt(0) != '/') {
-                        int index = line.indexOf('/'); // Find the index of the '/' character
-                        if (index != -1) {
-                            String reg_name = line.substring(0, index); // Extract the region name
-                            String contestantsList = line.substring(index + 1); // Extract the contestants' names
-                            System.out.println("Region: " + reg_name);
-                            System.out.println("Contestants: " + contestantsList);
-                            regions.add(reg_name); // Add the region name to the list
-                            contestants.add(contestantsList);
+        try {
+            fr = new FileReader(file);
+            BufferedReader br = new BufferedReader(fr);
+            String initial;
+            Region currentRegion = null;
+
+            while ((initial = br.readLine()) != null) {
+                if (initial.equals("//")) {
+                    while (!(initial = br.readLine()).equals("&&")) {
+                        if (initial.equals("//")) {
+                            continue;
+                        } else if (Character.isDigit(initial.charAt(0))) {
+                            String[] vt = initial.split(" ");
+                            String[] slicedArray = Arrays.copyOfRange(vt, 1, vt.length);
+
+                            Integer voterId = Integer.valueOf(vt[0]);
+                            if (voters.contains(voterId) || vt.length > 4 || vt.length < 2 || !allKeysPresent(currentRegion, slicedArray)) {
+                                currentRegion.invalid += 1;
+                            } else {
+                                voters.add(voterId);
+                                for (int i = 0; i < slicedArray.length; i++) {
+                                    String votedFor = slicedArray[i];
+                                    Integer currentVotes = currentRegion.analysis.get(votedFor);
+                                    currentVotes += i * (-1) + 3;
+                                    currentRegion.analysis.put(votedFor, currentVotes);
+                                    Integer totalCurrentVotes = total_results.get(votedFor);
+                                    totalCurrentVotes += i * (-1) + 3;
+                                    total_results.put(votedFor, totalCurrentVotes);
+                                }
+                            }
+                        } else {
+                            for (Region regn : regions) {
+                                if (regn.name.equals(initial)) {
+                                    currentRegion = regn;
+                                }
+                            }
                         }
                     }
-                } else {
-                    // Save the data into the remainingData list
-                    remainingData.add(line);
+                } else if (initial.contains("/")) {
+                    String[] tmp = initial.split("/");
+                    char[] cnts = tmp[1].toCharArray();
+                    Region r = new Region();
+                    r.name = tmp[0];
+                    for (char cntst : cnts) {
+                        r.analysis.put(String.valueOf(cntst), 0);
+                        if (!(total_results.containsKey(String.valueOf(cntst)))) {
+                            total_results.put(String.valueOf(cntst), 0);
+                        }
+                    }
+                    regions.add(r);
                 }
-                currentLine++; // Increment the current line number
+
+                if (initial.equals("&&")) {
+                    break;
+                }
             }
+            ElectionResults(regions, total_results);
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
 
-        // Break the remainingData list into different lists based on the delimiter "//"
-        List<List<String>> regionDataLists = new ArrayList<>();
-        List<String> currentList = new ArrayList<>();
-        for (String data : remainingData) {
-            if (data.equals("//")) {
-                regionDataLists.add(currentList);
-                currentList = new ArrayList<>();
-            } else {
-                currentList.add(data);
-            }
-        }
-        if (!currentList.isEmpty()) {
-            regionDataLists.add(currentList);
-        }
-
-        // Display the data lists for each region
-        
-        System.out.println("Data lists for each region:");
-        int numOfRegions = regions.size();
-        Map<String, Integer> winnerList = new LinkedHashMap<>();
-        int winnerIndex = 0;
-        for (int i = 0; i < numOfRegions; i++) {
-        	int count =0 ;
-            List<String> regionData = regionDataLists.get(i);
-            System.out.println("Region " + regions.get(i));
-            List<String> contestantList = new ArrayList<>(Arrays.asList(contestants.get(i).split("")));
-            List<Integer> votes = new ArrayList<>(Collections.nCopies(contestantList.size(), 0));
-            for (int j = 1; j < regionData.size(); j++) { // Start from the second element
-                String[] parts = regionData.get(j).split(" ");
-                String voterId = parts[0]; // Extract voter ID
-                if (!voterIds.contains(voterId)) { // If voter ID is not in the set, add it
-                    voterIds.add(voterId);
-                    String preferences = parts[1];
-                    List<String> preferenceList = new ArrayList<>(Arrays.asList(preferences.split("")));
-                    System.out.println("Voter ID: " + voterId);
-                    System.out.println("------" + preferenceList + "--------");
-                    for (String preference : preferenceList) {
-                        if (contestantList.contains(preference)) {
-                            // Preference is valid
-                            System.out.println("Valid preference: " + preference);
-                            count++;
-                        } 
+    private static void ElectionResults(List<Region> regions, Map<String, Integer> total_results) {
+        for (Region r : regions) {
+            String wonAtRegion = "";
+            Integer currentHigh = 0;
+            if (r.analysis.keySet().size() >= 1) {
+                for (String candidate : r.analysis.keySet()) {
+                    if (r.analysis.get(candidate) > currentHigh) {
+                        currentHigh = r.analysis.get(candidate);
+                        wonAtRegion = candidate;
                     }
-                    if (count == 3) {
-                        int index = 0;
-                        for (String contest : contestantList) {
-                            if (preferenceList.contains(contest)) {
-                                int indexnum = preferenceList.indexOf(contest);
-                                if (indexnum == 0) {
-                                    votes.set(index, votes.get(index) + 3);
-                                } else if (indexnum == 1) {
-                                    votes.set(index, votes.get(index) + 2);
-                                } else {
-                                    votes.set(index, votes.get(index) + 1);
-                                }
-                            }
-                            index++;
-                        }
-                    }
-
-                    
-                    	
-                 
                 }
+                System.out.println(wonAtRegion + "  with score: " + currentHigh + " And No of invalid votes in this region is: " + r.invalid);
+                System.out.println(r.name + " REGIONAL HEAD is " + wonAtRegion);
             }
-            
-            
-            int maxIndex = votes.indexOf(Collections.max(votes));
-            winnerList.put(contestantList.get(maxIndex), votes.get(maxIndex));
-            winnerIndex++;// Add the winner to the winnerList
-            System.out.println("--------"); // Add separator between region data lists
         }
-        int temp =0;
-        if (regions.size() == winnerList.size()) {
-        	
-        	for (Map.Entry<String, Integer> entry : winnerList.entrySet()) {
-        	    System.out.println("Region " + regions.get(temp) + " Winner " + entry.getKey() + " Votes " + entry.getValue());
-        	    temp++;
-        	}
-        
 
-        } else {
-            System.out.println("Error: Size mismatch between regions and winnerList.");
-            System.out.println("Size of regions list: " + regions.size());
-            System.out.println("Size of winnerList: " + winnerList.size());
+        String ChiefOfficer = "";
+        Integer currentHigh = 0;
+        for (String cd : total_results.keySet()) {
+            if (total_results.get(cd) > currentHigh) {
+                ChiefOfficer = cd;
+                currentHigh = total_results.get(cd);
+            }
         }
-        System.out.println("Cheif winner");
+        System.out.println("Chief Officer is: " + ChiefOfficer + "  with total votes: " + currentHigh);
+        System.out.println("Cogratulations : "+ChiefOfficer);
+    }
 
+    private static boolean allKeysPresent(Region currentRegion, String[] slicedarray) {
+        boolean allKeysPresent = true;
+        for (String i : slicedarray) {
+            if (!currentRegion.analysis.containsKey(i)) {
+                allKeysPresent = false;
+            }
+        }
+        return allKeysPresent;
     }
 }
